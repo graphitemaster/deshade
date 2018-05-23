@@ -403,7 +403,7 @@ extern "C" void* dlsym(void* handle, const char* symbol)
 		std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 		*(void **)&context.glx_Main_ = result;
 		void *replace = (void *)&__glx_Main;
-		Log("Intercepted: dlsym(% /* % */, \"%\" = % /* replaced with % */\n", handle, name, symbol, result, replace);
+		Log("Intercepted: dlsym(% /* % */, \"%\") = % /* replaced with % */\n", handle, name, symbol, result, replace);
 		return replace;
 	}
 	else if (!strcmp(symbol, "glXGetProcAddress"))
@@ -412,7 +412,7 @@ extern "C" void* dlsym(void* handle, const char* symbol)
 		std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 		*(void **)&context.glXGetProcAddress_ = result;
 		void *replace = (void *)&GetProcAddress;
-		Log("Intercepted: dlsym(% /* % */, \"%\" = % /* replaced with % */\n", handle, name, symbol, result, replace);
+		Log("Intercepted: dlsym(% /* % */, \"%\") = % /* replaced with % */\n", handle, name, symbol, result, replace);
 		return replace;
 	}
 	else if (!strcmp(symbol, "glXGetProcAddressARB"))
@@ -421,7 +421,7 @@ extern "C" void* dlsym(void* handle, const char* symbol)
 		std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 		*(void **)&context.glXGetProcAddressARB_ = result;
 		void *replace = (void *)&GetProcAddressARB;
-		Log("Intercepted: dlsym(% /* % */, \"%\" = % /* replaced with % */\n", handle, name, symbol, result, replace);
+		Log("Intercepted: dlsym(% /* % */, \"%\") = % /* replaced with % */\n", handle, name, symbol, result, replace);
 		return replace;
 	}
 
