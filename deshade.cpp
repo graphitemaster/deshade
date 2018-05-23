@@ -362,7 +362,7 @@ extern "C" Bool __glx_Main(uint32_t version, const void *exports, void *vendor, 
 		*(void **)&context.glXGetProcAddress_, (void *)&GetProcAddress);
 
 	Log("Intercepted: \"glXGetProcAddressARB\" % /* replaced with % */\n",
-			*(void **)&context.glXGetProcAddressARB_, (void *)&GetProcAddressARB);
+		*(void **)&context.glXGetProcAddressARB_, (void *)&GetProcAddressARB);
 
 	return result;
 }
