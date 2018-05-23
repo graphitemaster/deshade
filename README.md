@@ -57,8 +57,8 @@ the application acquires an OpenGL context this should work.
 Applications which use multiple OpenGL contexts per thread may fail to
 work due to the way deshade only maintains one set of function pointers
 for the first context. Support for multiple contexts per thread would
-require supplementing the `glXCreateContext`, `glxDestroyContext` and
-`glxMakeCurrent` functions.
+require supplementing the `glXCreateContext`, `glXDestroyContext` and
+`glXMakeCurrent` functions.
 
 deshade exploits internal glibc dynamic linker functions to replace the
 dynamic linker itself to handle any applications that get OpenGL
