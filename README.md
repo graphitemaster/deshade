@@ -17,7 +17,7 @@ is invoked.
 
 ```
 mkdir shaders
-LD_PRELOAD=./deshade application
+LD_PRELOAD=./deshade.so application
 ```
 
 The shaders will be written to the `shaders` directory, their names
