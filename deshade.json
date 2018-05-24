@@ -3,7 +3,7 @@
 	"layer" : {
 		"name": "VK_LAYER_deshade",
 		"type": "GLOBAL",
-		"library_path": "/root/deshade/deshade.so",
+		"library_path": "./deshade.so",
 		"api_version": "1.0.3",
 		"implementation_version": "1",
 		"description": "deshade - https://github.com/graphitemaster/deshade",
