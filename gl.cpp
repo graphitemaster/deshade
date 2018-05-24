@@ -93,9 +93,9 @@ static const char* GetShaderExtensionString(GLenum shader_type)
 	case GL_GEOMETRY_SHADER:
 		return "_gs.glsl";
 	case GL_TESS_CONTROL_SHADER:
-		return "_tsc.glsl";
+		return "_tcs.glsl";
 	case GL_TESS_EVALUATION_SHADER:
-		return "_tse.glsl";
+		return "_tes.glsl";
 	}
 	return "<unknown>";
 }
@@ -113,9 +113,9 @@ static const char* GetShaderTypeString(GLenum shader_type)
 	case GL_GEOMETRY_SHADER:
 		return "geometry";
 	case GL_TESS_CONTROL_SHADER:
-		return "tesselation control";
+		return "tessellation control";
 	case GL_TESS_EVALUATION_SHADER:
-		return "tesselation evaluation";
+		return "tessellation evaluation";
 	}
 	return "<unknown>";
 }
