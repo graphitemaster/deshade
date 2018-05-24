@@ -33,7 +33,7 @@ current user. Then enable the implicit layer with `ENABLE_VK_LAYER_deshade=1`
 like so:
 
 ```
-mkdir
+mkdir shaders
 ENABLE_VK_LAYER_deshade=1 application
 ```
 
