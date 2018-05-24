@@ -3,10 +3,12 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
-#include <fstream>
 #include <streambuf>
 
 #include <cstring> // std::memcpy, std::strlen
+
+#include "log.h"
+#include "hash.h"
 
 extern "C"
 {
@@ -25,37 +27,9 @@ typedef void (*GLSHADERSOURCEPROC)(GLuint, GLsizei, const GLchar**, const GLint*
 extern "C" void * __libc_dlopen_mode(const char* filename, int flag);
 extern "C" void * __libc_dlsym(void* handle, const char* symbol);
 
-// 128 bit hash via djbx33ax4 (Daniel Bernstein Times 33 with Addition interleaved 4x for 128 bits)
-static void hash128(const unsigned char *buffer, size_t size, unsigned char *out)
+struct ContextGL
 {
-	const unsigned char *const end = (const unsigned char *const )buffer + size;
-	uint32_t state[] = { 5381, 5381, 5381, 5381 };
-	size_t s = 0;
-	for (const unsigned char *p = buffer; p < end; p++)
-	{
-		state[s] = state[s] * 33  + *p;
-		s = (s+1) & 0x03;
-	}
-	std::memcpy(out, state, sizeof state);
-}
-
-static std::string hash128(const unsigned char *buffer, size_t size)
-{
-	std::string result;
-	unsigned char output[16];
-	hash128(buffer, size, output);
-	static const char *k_hex = "0123456789ABCDEF";
-	for (size_t i = 0; i < sizeof output; ++i)
-	{
-		result += k_hex[(output[i] >> 4) & 0x0F];
-		result += k_hex[output[i] & 0x0F];
-	}
-	return result;
-}
-
-struct Context
-{
-	Context();
+	ContextGL();
 
 	// dynamic linker functions are replaced, these are the original
 	// needed to forward from the replacement
@@ -73,12 +47,9 @@ struct Context
 	GLCREATESHADERPROC glCreateShader_;
 	GLDELETESHADERPROC glDeleteShader_;
 	GLSHADERSOURCEPROC glShaderSource_;
-
-	// log file
-	std::ofstream log_;
 };
 
-Context::Context()
+ContextGL::ContextGL()
 	: dlsym_                { nullptr }
 	, dlopen_               { nullptr }
 	, dlclose_              { nullptr }
@@ -88,7 +59,6 @@ Context::Context()
 	, glCreateShader_       { nullptr }
 	, glDeleteShader_       { nullptr }
 	, glShaderSource_       { nullptr }
-	, log_                  { "deshade.txt" }
 {
 	void* libdl = __libc_dlopen_mode("libdl.so.2", RTLD_LOCAL | RTLD_NOW);
 	if (libdl)
@@ -100,58 +70,14 @@ Context::Context()
 	}
 }
 
-static Context& GetContext()
+static ContextGL& GetContext()
 {
 	// context has to leak on exit, _dl_fini will want to call our dlclose
 	// which depends on the context existing
-	static Context* context_ = nullptr;
+	static ContextGL* context_ = nullptr;
 	static std::once_flag once;
-	std::call_once(once, [](){ context_ = new Context; });
+	std::call_once(once, [](){ context_ = new ContextGL; });
 	return *context_;
-}
-
-void Log(const char *string)
-{
-	Context& context = GetContext();
-	while (*string)
-	{
-		if (*string == '%')
-		{
-			if (*(string + 1) == '%')
-			{
-				++string;
-			}
-			else
-			{
-				abort();
-			}
-		}
-		context.log_ << *string++;
-	}
-	context.log_.flush();
-}
-
-template<typename T, typename... Ts>
-void Log(const char *string, T value, Ts&&... args)
-{
-	Context& context = GetContext();
-	while (*string)
-	{
-		if (*string == '%')
-		{
-			if (*(string + 1) == '%')
-			{
-				++string;
-			}
-			else
-			{
-				context.log_ << value;
-				Log(string + 1, std::forward<Ts>(args)...);
-				return;
-			}
-		}
-		context.log_ << *string++;
-	}
 }
 
 static const char* GetShaderExtensionString(GLenum shader_type)
@@ -197,7 +123,7 @@ static const char* GetShaderTypeString(GLenum shader_type)
 // Replacement OpenGL shader functions
 static GLuint CreateShader(GLenum shader_type)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 	GLuint result = context.glCreateShader_(shader_type);
 	if (result)
@@ -211,7 +137,7 @@ static GLuint CreateShader(GLenum shader_type)
 
 static void DeleteShader(GLuint shader)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 	auto find = context.shader_handle_to_type.find(shader);
 	if (find != context.shader_handle_to_type.end())
@@ -224,7 +150,7 @@ static void DeleteShader(GLuint shader)
 
 static void ShaderSource(GLuint shader, GLsizei count, const GLchar** string, const GLint* length)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 
 	GLenum shader_type = 0;
@@ -250,7 +176,7 @@ static void ShaderSource(GLuint shader, GLsizei count, const GLchar** string, co
 	source.erase(std::remove_if(source.begin(), source.end(), [](char ch) { return ch == '\r'; }), source.end());
 
 	// calculate hash
-	std::string hash = hash128((const unsigned char *)source.data(), source.size());
+	std::string hash = Hash128((const uint8_t *)source.data(), source.size());
 
 	// construct string from contents
 	std::string contents;
@@ -296,7 +222,7 @@ static bool Match(const std::string& name, const char *match)
 
 static void* ApplyReplacements(const char* name, void* handle)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	if (Match("glCreateShader", name))
 	{
 		*(void **)&context.glCreateShader_ = handle;
@@ -318,7 +244,7 @@ static void* ApplyReplacements(const char* name, void* handle)
 static void* GetProcAddress(const GLubyte* symbol)
 {
 	const char *name = (const char *)symbol;
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 	void *result = (void *)context.glXGetProcAddress_(symbol);
 	void *replace = ApplyReplacements(name, result);
@@ -333,7 +259,7 @@ static void* GetProcAddress(const GLubyte* symbol)
 static void* GetProcAddressARB(const GLubyte* symbol)
 {
 	const char *name = (const char *)symbol;
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 	void *result = (void *)context.glXGetProcAddressARB_(symbol);
 	void *replace = ApplyReplacements(name, result);
@@ -348,7 +274,7 @@ static void* GetProcAddressARB(const GLubyte* symbol)
 // replace __glx_Main as an export
 extern "C" Bool __glx_Main(uint32_t version, const void *exports, void *vendor, void *imports)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	std::lock_guard<std::recursive_mutex> lock(context.mutex_);
 
 	Bool result = context.glx_Main_(version, exports, vendor, imports);
@@ -370,7 +296,7 @@ extern "C" Bool __glx_Main(uint32_t version, const void *exports, void *vendor, 
 // replace loader incase the application dlopen's and fetches GL functions this way
 extern "C" void* dlsym(void* handle, const char* symbol)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	std::string name = "<unknown>";
 	context.mutex_.lock();
 	auto find = context.object_handle_to_name.find(handle);
@@ -435,7 +361,7 @@ extern "C" void* dlsym(void* handle, const char* symbol)
 
 extern "C" void* dlopen(const char* name, int flags)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	void *result = context.dlopen_(name, flags);
 	const char *safe_name = name;
 	if (name == RTLD_NEXT || name == RTLD_DEFAULT)
@@ -465,7 +391,7 @@ extern "C" void* dlopen(const char* name, int flags)
 
 extern "C" int dlclose(void* handle)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	context.mutex_.lock();
 	auto find = context.object_handle_to_name.find(handle);
 	std::string name = "<unknown>";
@@ -482,7 +408,7 @@ extern "C" int dlclose(void* handle)
 
 static void ReplaceExport(bool ARB)
 {
-	Context& context = GetContext();
+	ContextGL& context = GetContext();
 	context.mutex_.lock();
 	if (!ARB && !context.glXGetProcAddress_)
 	{

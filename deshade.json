@@ -1,0 +1,21 @@
+{
+	"file_format_version" : "1.0.0",
+	"layer" : {
+		"name": "VK_LAYER_deshade",
+		"type": "GLOBAL",
+		"library_path": "/root/deshade/deshade.so",
+		"api_version": "1.0.3",
+		"implementation_version": "1",
+		"description": "deshade - https://github.com/graphitemaster/deshade",
+		"functions": {
+			"vkGetInstanceProcAddr": "deshade_vkGetInstanceProcAddr",
+			"vkGetDeviceProcAddr": "deshade_vkGetDeviceProcAddr"
+		},
+		"disable_environment": {
+			"DISABLE_VK_LAYER_deshade": "1"
+		},
+		"enable_environment": {
+			"ENABLE_VK_LAYER_deshade": "1"
+		}
+	}
+}
